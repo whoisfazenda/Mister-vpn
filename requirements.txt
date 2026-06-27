@@ -1,0 +1,14 @@
+aiogram==3.28.2
+SQLAlchemy[asyncio]==2.0.43
+alembic==1.16.4
+asyncpg==0.30.0
+httpx==0.28.1
+fastapi==0.118.0
+uvicorn[standard]==0.37.0
+pydantic==2.11.9
+pydantic-settings==2.11.0
+
+# dev / tests
+pytest==8.4.2
+pytest-asyncio==1.2.0
+aiosqlite==0.21.0

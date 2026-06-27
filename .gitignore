@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+env/
+.Python
+
+# Env / secrets
+.env
+*.env
+!.env.example
+
+# Local databases / runtime state
+*.db
+*.sqlite
+*.sqlite3
+
+# Local SDK / package caches
+.dotnet/
+.dotnet-home/
+.nuget/
+
+# IDE
+.idea/
+.vscode/
+.claude/
+*.swp
+
+# Tests / tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+
+# Desktop client build outputs
+desktop_client/**/bin/
+desktop_client/**/obj/
+
+# OS
+.DS_Store
+Thumbs.db
