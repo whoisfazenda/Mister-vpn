@@ -91,6 +91,7 @@ async def balance_topup_amount(
         f"{pe('balance')} <b>Пополнение баланса</b>\n\n"
         f"Сумма: <b>{float(amount):.2f} RUB</b>",
         back_callback="profile:open",
+        include_yookassa_sbp=True,
     )
 
 

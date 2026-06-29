@@ -217,7 +217,8 @@ class OrderService:
     # ── payment ──────────────────────────────────────────────
     async def start_payment(self, order: Order, payment_method: str | None = None) -> str:
         """Create a payment with the provider and return the confirmation URL."""
-        result = await self.payments.create_payment(
+        provider = self._payment_provider_for_order(order)
+        result = await provider.create_payment(
             order_uuid=order.order_uuid,
             amount=float(order.amount),
             currency=order.currency,
@@ -225,6 +226,7 @@ class OrderService:
             idempotency_key=order.idempotency_key,
             payment_method=payment_method,
         )
+        order.payment_provider = provider.name
         order.payment_id = result.payment_id
         await self.session.commit()
         return result.confirmation_url
@@ -238,12 +240,20 @@ class OrderService:
             return False
         if not order.payment_id:
             return False
-        status = await self.payments.get_payment_status(order.payment_id)
+        status = await self._payment_provider_for_order(order).get_payment_status(order.payment_id)
         if status == PaymentStatus.SUCCEEDED:
             await self.orders.mark_paid(order)
             await self.session.commit()
             return True
         return False
+
+    def _payment_provider_for_order(self, order: Order) -> PaymentProvider:
+        provider_name = str(order.payment_provider or "").strip()
+        if not provider_name or provider_name == self.payments.name:
+            return self.payments
+        from app.services.payments.factory import get_payment_provider
+
+        return get_payment_provider(provider_name)
 
     async def mark_paid_by_payment_id(self, payment_id: str) -> Order | None:
         """Used by a payment webhook. Idempotent: a second call is a no-op."""

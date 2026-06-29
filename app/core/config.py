@@ -72,6 +72,13 @@ class Settings(BaseSettings):
     rollypay_fail_redirect_url: str = Field(default="", alias="ROLLYPAY_FAIL_REDIRECT_URL")
     rollypay_timeout: float = Field(default=20.0, alias="ROLLYPAY_TIMEOUT")
 
+    # ── YooKassa ─────────────────────────────────────────────
+    yookassa_base_url: str = Field(default="https://api.yookassa.ru", alias="YOOKASSA_BASE_URL")
+    yookassa_shop_id: str = Field(default="", alias="YOOKASSA_SHOP_ID")
+    yookassa_secret_key: str = Field(default="", alias="YOOKASSA_SECRET_KEY")
+    yookassa_return_url: str = Field(default="", alias="YOOKASSA_RETURN_URL")
+    yookassa_timeout: float = Field(default=20.0, alias="YOOKASSA_TIMEOUT")
+
     # ── App ──────────────────────────────────────────────────
     dev_mode: bool = Field(default=False, alias="DEV_MODE")
     support_url: str = Field(default="https://t.me/your_support", alias="SUPPORT_URL")

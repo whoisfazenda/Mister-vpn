@@ -185,6 +185,7 @@ async def render_payment_method_choice(
     text: str,
     *,
     back_callback: str | None = None,
+    include_yookassa_sbp: bool = False,
 ) -> None:
     from app.bot.keyboards.factory import make_button
 
@@ -193,6 +194,8 @@ async def render_payment_method_choice(
         [make_button("💎 Криптовалютой", f"pay:start:crypto:{order_uuid}", "success")],
         [make_button("❌ Отменить", f"pay:cancel:{order_uuid}", "danger")],
     ]
+    if include_yookassa_sbp:
+        rows.insert(1, [make_button("⚡ СБП #2", f"pay:start:yookassa_sbp:{order_uuid}", "primary")])
     if back_callback:
         rows.append([make_button("⬅️ Назад", back_callback)])
     message_text = text + "\n\nВыберите способ оплаты:"
@@ -207,21 +210,32 @@ async def _render_payment_screen(callback, order, confirmation_url, *, crypto: b
     rows: list[list[InlineKeyboardButton]] = []
     from app.bot.keyboards.factory import make_button
 
-    pay_label = "💎 Перейти к оплате криптой" if crypto else "💳 Перейти к оплате"
+    is_yookassa = str(order.payment_provider or "").lower() == "yookassa"
+    if crypto:
+        pay_label = "\U0001f48e \u041f\u0435\u0440\u0435\u0439\u0442\u0438 \u043a \u043e\u043f\u043b\u0430\u0442\u0435 \u043a\u0440\u0438\u043f\u0442\u043e\u0439"
+    elif is_yookassa:
+        pay_label = "\u26a1 \u041f\u0435\u0440\u0435\u0439\u0442\u0438 \u043a \u043e\u043f\u043b\u0430\u0442\u0435 \u0421\u0411\u041f #2"
+    else:
+        pay_label = "\U0001f4b3 \u041f\u0435\u0440\u0435\u0439\u0442\u0438 \u043a \u043e\u043f\u043b\u0430\u0442\u0435"
     rows.append([make_url_button(pay_label, confirmation_url)])
-    rows.append([make_button("✅ Проверить оплату", f"pay:check:{order.order_uuid}", "success")])
+    rows.append([make_button("\u2705 \u041f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c \u043e\u043f\u043b\u0430\u0442\u0443", f"pay:check:{order.order_uuid}", "success")])
     if settings.dev_mode:
         rows.append(
-            [make_button("🧪 [DEV] Отметить оплаченным", f"pay:devpaid:{order.order_uuid}", "primary")]
+            [make_button("\U0001f9ea [DEV] \u041e\u0442\u043c\u0435\u0442\u0438\u0442\u044c \u043e\u043f\u043b\u0430\u0447\u0435\u043d\u043d\u044b\u043c", f"pay:devpaid:{order.order_uuid}", "primary")]
         )
-    rows.append([make_button("❌ Отменить", f"pay:cancel:{order.order_uuid}", "danger")])
+    rows.append([make_button("\u274c \u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c", f"pay:cancel:{order.order_uuid}", "danger")])
+
+    method_line = ""
+    if is_yookassa:
+        method_line = "\n\u0421\u043f\u043e\u0441\u043e\u0431 \u043e\u043f\u043b\u0430\u0442\u044b: <b>\u0421\u0411\u041f #2</b>"
+    elif crypto:
+        method_line = "\n\u0421\u043f\u043e\u0441\u043e\u0431 \u043e\u043f\u043b\u0430\u0442\u044b: <b>\u043a\u0440\u0438\u043f\u0442\u043e\u0432\u0430\u043b\u044e\u0442\u0430</b>"
+
     await replace_with_text_screen(
         callback,
-        _payment_text(order)
-        + ("\nСпособ оплаты: <b>криптовалюта</b>" if crypto else ""),
+        _payment_text(order) + method_line,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
-
 
 def _payment_text(order) -> str:
     if order.order_type == OrderType.BALANCE_TOPUP:
@@ -254,12 +268,17 @@ def _payment_text(order) -> str:
 @router.callback_query(F.data.startswith("pay:start:"))
 async def start_selected_payment(callback: CallbackQuery, session: AsyncSession, user: User) -> None:
     _, _, method, order_uuid = callback.data.split(":", 3)
-    order_service = OrderService(session, get_client(), get_payments())
+    from app.services.payments.factory import get_payment_provider
+
+    payment_provider = get_payment_provider("yookassa") if method == "yookassa_sbp" else get_payments()
+    order_service = OrderService(session, get_client(), payment_provider)
     order = await order_service.orders.get_by_uuid(order_uuid)
     if order is None or order.user_id != user.id:
         await callback.answer(texts.ERROR_NOT_FOUND, show_alert=True)
         return
-    payment_method = "crypto" if method == "crypto" else None
+    if method == "yookassa_sbp":
+        order.payment_provider = payment_provider.name
+    payment_method = "crypto" if method == "crypto" else ("sbp" if method == "yookassa_sbp" else None)
     try:
         confirmation_url = await order_service.start_payment(order, payment_method=payment_method)
     except Exception as exc:  # noqa: BLE001
