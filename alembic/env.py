@@ -50,7 +50,10 @@ def do_run_migrations(connection) -> None:
 
 
 async def run_migrations_online() -> None:
-    engine = create_async_engine(DB_URL, pool_pre_ping=True)
+    engine = create_async_engine(
+        DB_URL,
+        pool_pre_ping=not DB_URL.startswith("mysql+aiomysql://"),
+    )
     async with engine.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await engine.dispose()
