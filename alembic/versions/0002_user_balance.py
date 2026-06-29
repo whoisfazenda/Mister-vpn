@@ -18,16 +18,26 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "users",
-        sa.Column("balance", sa.Numeric(precision=12, scale=2), nullable=False, server_default="0"),
-    )
-    op.add_column(
-        "users",
-        sa.Column("balance_currency", sa.String(length=8), nullable=False, server_default="RUB"),
-    )
+    if not _has_column("users", "balance"):
+        op.add_column(
+            "users",
+            sa.Column("balance", sa.Numeric(precision=12, scale=2), nullable=False, server_default="0"),
+        )
+    if not _has_column("users", "balance_currency"):
+        op.add_column(
+            "users",
+            sa.Column("balance_currency", sa.String(length=8), nullable=False, server_default="RUB"),
+        )
 
 
 def downgrade() -> None:
-    op.drop_column("users", "balance_currency")
-    op.drop_column("users", "balance")
+    if _has_column("users", "balance_currency"):
+        op.drop_column("users", "balance_currency")
+    if _has_column("users", "balance"):
+        op.drop_column("users", "balance")
+
+
+def _has_column(table_name: str, column_name: str) -> bool:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return any(column["name"] == column_name for column in inspector.get_columns(table_name))

@@ -18,16 +18,26 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "vpn_plan_snapshots",
-        sa.Column("is_public", sa.Boolean(), nullable=False, server_default=sa.false()),
-    )
-    op.add_column(
-        "vpn_plan_snapshots",
-        sa.Column("manual_price", sa.Boolean(), nullable=False, server_default=sa.false()),
-    )
+    if not _has_column("vpn_plan_snapshots", "is_public"):
+        op.add_column(
+            "vpn_plan_snapshots",
+            sa.Column("is_public", sa.Boolean(), nullable=False, server_default=sa.false()),
+        )
+    if not _has_column("vpn_plan_snapshots", "manual_price"):
+        op.add_column(
+            "vpn_plan_snapshots",
+            sa.Column("manual_price", sa.Boolean(), nullable=False, server_default=sa.false()),
+        )
 
 
 def downgrade() -> None:
-    op.drop_column("vpn_plan_snapshots", "manual_price")
-    op.drop_column("vpn_plan_snapshots", "is_public")
+    if _has_column("vpn_plan_snapshots", "manual_price"):
+        op.drop_column("vpn_plan_snapshots", "manual_price")
+    if _has_column("vpn_plan_snapshots", "is_public"):
+        op.drop_column("vpn_plan_snapshots", "is_public")
+
+
+def _has_column(table_name: str, column_name: str) -> bool:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return any(column["name"] == column_name for column in inspector.get_columns(table_name))
