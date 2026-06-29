@@ -270,11 +270,12 @@ async def start_selected_payment(callback: CallbackQuery, session: AsyncSession,
     _, _, method, order_uuid = callback.data.split(":", 3)
     from app.services.payments.factory import get_payment_provider
 
+    await callback.answer()
     payment_provider = get_payment_provider("yookassa") if method == "yookassa_sbp" else get_payments()
     order_service = OrderService(session, get_client(), payment_provider)
     order = await order_service.orders.get_by_uuid(order_uuid)
     if order is None or order.user_id != user.id:
-        await callback.answer(texts.ERROR_NOT_FOUND, show_alert=True)
+        await replace_with_text_screen(callback, texts.ERROR_NOT_FOUND, reply_markup=back_to_menu())
         return
     if method == "yookassa_sbp":
         order.payment_provider = payment_provider.name
@@ -283,7 +284,7 @@ async def start_selected_payment(callback: CallbackQuery, session: AsyncSession,
         confirmation_url = await order_service.start_payment(order, payment_method=payment_method)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Payment creation failed: %s", exc)
-        await callback.answer(friendly_error(exc), show_alert=True)
+        await replace_with_text_screen(callback, friendly_error(exc), reply_markup=back_to_menu())
         return
     await _render_payment_screen(
         callback,
@@ -291,7 +292,6 @@ async def start_selected_payment(callback: CallbackQuery, session: AsyncSession,
         confirmation_url,
         crypto=payment_method == "crypto",
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("pay:check:"))
@@ -303,7 +303,12 @@ async def check_payment(callback: CallbackQuery, session: AsyncSession, user: Us
         await callback.answer(texts.ERROR_NOT_FOUND, show_alert=True)
         return
 
-    paid = await order_service.check_and_mark_paid(order)
+    try:
+        paid = await order_service.check_and_mark_paid(order)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Payment check failed: %s", exc)
+        await callback.answer(friendly_error(exc), show_alert=True)
+        return
     if not paid:
         await callback.answer(texts.ERROR_PAYMENT_PENDING, show_alert=True)
         return
