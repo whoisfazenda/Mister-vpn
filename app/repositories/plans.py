@@ -24,7 +24,10 @@ class PlanRepository(BaseRepository):
             stmt = stmt.where(VPNPlanSnapshot.is_trial.is_(False))
         if public_only:
             stmt = stmt.where(VPNPlanSnapshot.is_public.is_(True))
-        stmt = stmt.order_by(VPNPlanSnapshot.retail_price.asc().nullslast())
+        stmt = stmt.order_by(
+            VPNPlanSnapshot.retail_price.is_(None),
+            VPNPlanSnapshot.retail_price.asc(),
+        )
         res = await self.session.execute(stmt)
         return list(res.scalars().all())
 
@@ -45,8 +48,10 @@ class PlanRepository(BaseRepository):
         if public_only:
             stmt = stmt.where(VPNPlanSnapshot.is_public.is_(True))
         stmt = stmt.order_by(
-            VPNPlanSnapshot.max_devices.asc().nullslast(),
-            VPNPlanSnapshot.retail_price.asc().nullslast(),
+            VPNPlanSnapshot.max_devices.is_(None),
+            VPNPlanSnapshot.max_devices.asc(),
+            VPNPlanSnapshot.retail_price.is_(None),
+            VPNPlanSnapshot.retail_price.asc(),
         )
         res = await self.session.execute(stmt)
         return list(res.scalars().all())
