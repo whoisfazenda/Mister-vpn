@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -28,6 +29,17 @@ def import_bot_main():
     try:
         return importlib.import_module("app.main_bot").main
     except ModuleNotFoundError as exc:
+        root_entrypoint = ROOT / "main_bot.py"
+        if root_entrypoint.exists():
+            spec = importlib.util.spec_from_file_location("pterodactyl_main_bot", root_entrypoint)
+            if spec is not None and spec.loader is not None:
+                module = importlib.util.module_from_spec(spec)
+                sys.modules["pterodactyl_main_bot"] = module
+                spec.loader.exec_module(module)
+                main = getattr(module, "main", None)
+                if main is not None:
+                    return main
+
         print("Could not import app.main_bot.", file=sys.stderr)
         print(f"Project root: {ROOT}", file=sys.stderr)
         print(f"Root exists: {ROOT.exists()}", file=sys.stderr)
