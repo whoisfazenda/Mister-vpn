@@ -190,8 +190,7 @@ async def render_payment_method_choice(
     from app.bot.keyboards.factory import make_button
 
     rows: list[list[InlineKeyboardButton]] = [
-        [make_button("💳 Картой", f"pay:start:yookassa_card:{order_uuid}", "primary")],
-        [make_button("⚡ СБП", f"pay:start:yookassa_sbp:{order_uuid}", "primary")],
+        [make_button("💳 Карта / СБП", f"pay:start:yookassa_all:{order_uuid}", "primary")],
         [make_button("💎 Криптовалютой", f"pay:start:crypto:{order_uuid}", "success")],
         [make_button("🚀 xRocket", f"pay:start:xrocket:{order_uuid}", "success")],
         [make_button("🤖 CryptoBot", f"pay:start:cryptobot:{order_uuid}", "success")],
@@ -217,11 +216,8 @@ async def _render_payment_screen(
     rows: list[list[InlineKeyboardButton]] = []
     from app.bot.keyboards.factory import make_button
 
-    is_yookassa = str(order.payment_provider or "").lower() == "yookassa"
     if method_label:
-        pay_label = f"💳 Перейти к оплате: {method_label}"
-    elif is_yookassa:
-        pay_label = "⚡ Перейти к оплате ЮKassa"
+        pay_label = f"💳 Перейти к оплате"
     else:
         pay_label = "\U0001f4b3 \u041f\u0435\u0440\u0435\u0439\u0442\u0438 \u043a \u043e\u043f\u043b\u0430\u0442\u0435"
     rows.append([make_url_button(pay_label, confirmation_url)])
@@ -268,7 +264,7 @@ def _payment_text(order) -> str:
 
 
 def _provider_for_payment_method(method: str) -> str:
-    if method in {"yookassa_card", "yookassa_sbp"}:
+    if method in {"yookassa_all", "yookassa_card", "yookassa_sbp"}:
         return "yookassa"
     if method in {"crypto", "xrocket", "cryptobot"}:
         return "rollypay"
@@ -277,6 +273,7 @@ def _provider_for_payment_method(method: str) -> str:
 
 def _provider_payment_method(method: str) -> str | None:
     mapping = {
+        "yookassa_all": None,
         "yookassa_card": "bank_card",
         "yookassa_sbp": "sbp",
         "crypto": "crypto",
@@ -288,6 +285,7 @@ def _provider_payment_method(method: str) -> str | None:
 
 def _payment_method_label(method: str) -> str:
     labels = {
+        "yookassa_all": "Карта / СБП / ЮMoney",
         "yookassa_card": "Картой через ЮKassa",
         "yookassa_sbp": "СБП через ЮKassa",
         "crypto": "Криптовалютой через RollyPay",

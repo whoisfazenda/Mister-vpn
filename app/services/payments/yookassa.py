@@ -56,13 +56,11 @@ class YooKassaProvider(PaymentProvider):
         if not self.shop_id or not self.secret_key:
             raise YooKassaError("YOOKASSA_SHOP_ID/YOOKASSA_SECRET_KEY are not configured")
 
-        payment_method_type = "bank_card" if payment_method in {"card", "bank_card"} else "sbp"
         payload: dict[str, Any] = {
             "amount": {
                 "value": _money(amount),
                 "currency": currency,
             },
-            "payment_method_data": {"type": payment_method_type},
             "confirmation": {
                 "type": "redirect",
                 "return_url": self.return_url,
@@ -75,6 +73,9 @@ class YooKassaProvider(PaymentProvider):
                 "source": "mister_vpn_bot",
             },
         }
+        if payment_method in {"card", "bank_card", "sbp"}:
+            payment_method_type = "bank_card" if payment_method in {"card", "bank_card"} else "sbp"
+            payload["payment_method_data"] = {"type": payment_method_type}
 
         data = await self._request(
             "POST",

@@ -9,7 +9,7 @@ from app.core.enums import PaymentStatus
 from app.services.payments.yookassa import YooKassaProvider
 
 
-async def test_yookassa_create_payment_forces_sbp_and_redirect() -> None:
+async def test_yookassa_create_payment_opens_full_checkout_by_default() -> None:
     seen: dict[str, object] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -53,7 +53,7 @@ async def test_yookassa_create_payment_forces_sbp_and_redirect() -> None:
     assert seen["path"] == "/v3/payments"
     assert seen["auth"] == expected_auth
     assert seen["idempotence"] == "idem-1"
-    assert '"payment_method_data":{"type":"sbp"}' in body
+    assert "payment_method_data" not in body
     assert '"confirmation":{"type":"redirect","return_url":"https://example.test/return"}' in body
     assert '"capture":true' in body
 
