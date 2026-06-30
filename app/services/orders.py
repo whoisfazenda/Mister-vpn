@@ -240,7 +240,18 @@ class OrderService:
             return False
         if not order.payment_id:
             return False
-        status = await self._payment_provider_for_order(order).get_payment_status(order.payment_id)
+        provider = self._payment_provider_for_order(order)
+        try:
+            status = await provider.get_payment_status(order.payment_id)
+        except Exception as exc:
+            if provider.name == "rollypay" and "payment not found" in str(exc).lower():
+                from app.services.payments.factory import get_payment_provider
+
+                fallback_provider = get_payment_provider("yookassa")
+                status = await fallback_provider.get_payment_status(order.payment_id)
+                order.payment_provider = fallback_provider.name
+            else:
+                raise
         if status == PaymentStatus.SUCCEEDED:
             await self.orders.mark_paid(order)
             await self.session.commit()

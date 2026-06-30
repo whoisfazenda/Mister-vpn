@@ -123,7 +123,14 @@ class YooKassaProvider(PaymentProvider):
             auth=(self.shop_id, self.secret_key),
             headers=headers,
         ) as client:
-            response = await client.request(method, path, **kwargs)
+            try:
+                response = await client.request(method, path, **kwargs)
+            except httpx.ConnectTimeout as exc:
+                raise YooKassaError("YooKassa connection timed out") from exc
+            except httpx.ReadTimeout as exc:
+                raise YooKassaError("YooKassa response timed out") from exc
+            except httpx.RequestError as exc:
+                raise YooKassaError(f"YooKassa network error: {exc.__class__.__name__}") from exc
         if response.status_code >= 400:
             try:
                 payload = response.json()
