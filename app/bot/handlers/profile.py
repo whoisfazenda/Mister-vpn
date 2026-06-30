@@ -56,7 +56,7 @@ async def profile_open(callback: CallbackQuery, session: AsyncSession, user: Use
         text,
         reply_markup=inline_keyboard(
             [
-                [("💵 Пополнить баланс", "balance:topup", "success")],
+                [("💰 Пополнить баланс", "balance:topup", "success")],
                 [("📋 Мои подписки", "profile:subs", "primary")],
                 [("📜 История транзакций", "profile:history")],
                 [("🎟 Активировать промокод", "profile:promo", "primary")],
