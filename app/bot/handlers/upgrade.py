@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.bot import texts
 from app.bot.deps import get_client, get_payments
 from app.bot.keyboards.factory import inline_keyboard, make_button, make_url_button
+from app.bot.premium_emoji import pe
 from app.core.config import settings
 from app.core.enums import OrderType
 from app.db.models.user import User
@@ -48,7 +49,7 @@ async def upgrade_menu(callback: CallbackQuery, session: AsyncSession, user: Use
     ]
     rows.append([("⬅️ В профиль", "profile:open")])
     await callback.message.edit_text(
-        "🚀 <b>Улучшение тарифа</b>\n\nВыберите новый тариф:",
+        f"{pe('rocket')} <b>Улучшение тарифа</b>\n\nВыберите новый тариф:",
         reply_markup=inline_keyboard(rows),
     )
     await callback.answer()
@@ -83,8 +84,8 @@ async def upgrade_plan(callback: CallbackQuery, session: AsyncSession, user: Use
         rows.append([make_button("🧪 [DEV] Отметить оплаченным", f"pay:devpaid:{order.order_uuid}", "primary")])
     rows.append([make_button("❌ Отменить", f"pay:cancel:{order.order_uuid}", "danger")])
     await callback.message.edit_text(
-        f"🚀 Переход на тариф <b>{texts.escape(plan.name)}</b>\n\n"
-        f"К оплате: <b>{format_price(float(amount), plan.currency)}</b>",
+        f"{pe('rocket')} Переход на тариф <b>{texts.escape(plan.name)}</b>\n\n"
+        f"{pe('card')} К оплате: <b>{format_price(float(amount), plan.currency)}</b>",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
     await callback.answer()

@@ -18,15 +18,15 @@ from app.utils.formatting import (
 )
 
 WELCOME = (
-    "👋 <b>Добро пожаловать в VPN-сервис!</b>\n\n"
+    f"{pe('sparkles')} <b>Добро пожаловать в VPN-сервис!</b>\n\n"
     "Быстрый и надёжный доступ к интернету без ограничений.\n"
     "Выберите действие в меню ниже."
 )
 
-MENU = "🏠 <b>Главное меню</b>\n\nЧем можем помочь?"
+MENU = f"{pe('shield')} <b>Главное меню</b>\n\nЧем можем помочь?"
 
 HELP = (
-    "❓ <b>Помощь</b>\n\n"
+    f"{pe('help')} <b>Помощь</b>\n\n"
     "• <b>Купить VPN</b> — выбрать тариф и оформить подписку.\n"
     "• <b>Мой VPN</b> — ссылка подключения, продление, устройства.\n"
     "• <b>Подключение</b> — как настроить VPN на ваших устройствах.\n"
@@ -47,12 +47,12 @@ CONNECT_GUIDE = (
 )
 
 SUPPORT = (
-    "💬 <b>Поддержка</b>\n\n"
+    f"{pe('chat')} <b>Поддержка</b>\n\n"
     "Возникли вопросы или сложности? Мы на связи и поможем."
 )
 
 NO_SUBSCRIPTION = (
-    "🛡 <b>Мой VPN</b>\n\n"
+    f"{pe('shield')} <b>Мой VPN</b>\n\n"
     "У вас пока нет активной подписки.\n"
     "Оформите тариф, чтобы начать пользоваться VPN."
 )
@@ -64,9 +64,9 @@ BUY_EMPTY = (
 )
 
 ERROR_GENERIC = f"{pe('warning')} Что-то пошло не так. Попробуйте ещё раз чуть позже."
-ERROR_RATE_LIMIT = "⏳ Сервис сейчас перегружен. Пожалуйста, повторите через минуту."
-ERROR_NOT_FOUND = "🔍 Объект не найден. Обновите раздел и попробуйте снова."
-ERROR_BAD_STATE = "🚫 Действие сейчас недоступно для вашей подписки."
+ERROR_RATE_LIMIT = f"{pe('time')} Сервис сейчас перегружен. Пожалуйста, повторите через минуту."
+ERROR_NOT_FOUND = f"{pe('search')} Объект не найден. Обновите раздел и попробуйте снова."
+ERROR_BAD_STATE = f"{pe('forbidden')} Действие сейчас недоступно для вашей подписки."
 ERROR_PAYMENT_PENDING = f"{pe('time')} Оплата пока не поступила. Попробуйте проверить чуть позже."
 
 
@@ -104,15 +104,15 @@ def order_summary(plan: VPNPlanSnapshot) -> str:
     lines = [
         f"{pe('subs')} <b>Ваш заказ</b>",
         "",
-        f"Тариф: <b>{escape(plan.name)}</b>",
+        f"{pe('subs')} Тариф: <b>{escape(plan.name)}</b>",
     ]
     if plan.duration_days:
-        lines.append(f"Срок: {format_days(plan.duration_days)}")
+        lines.append(f"{pe('calendar')} Срок: {format_days(plan.duration_days)}")
     if plan.max_devices:
-        lines.append(f"Устройств: до {plan.max_devices}")
-    lines.append(f"Трафик: {format_traffic(plan.traffic_limit_bytes)}")
+        lines.append(f"{pe('devices')} Устройств: до {plan.max_devices}")
+    lines.append(f"{pe('traffic')} Трафик: {format_traffic(plan.traffic_limit_bytes)}")
     lines.append("")
-    lines.append(f"К оплате: <b>{price}</b>")
+    lines.append(f"{pe('card')} К оплате: <b>{price}</b>")
     lines.append("")
     lines.append("Нажмите «Перейти к оплате», затем «Проверить оплату».")
     return "\n".join(lines)

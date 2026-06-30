@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.bot.keyboards.factory import make_button
+from app.bot.premium_emoji import pe
 from app.db.database import async_session_factory
 from app.db.models.subscription import VPNSubscription
 from app.repositories.settings import SettingsRepository
@@ -75,14 +76,14 @@ def _thresholds_for(sub: VPNSubscription) -> tuple[int, ...]:
 def _reminder_text(sub: VPNSubscription, days: int) -> str:
     if sub.is_trial:
         return (
-            "🎁 <b>Пробный период почти закончился</b>\n\n"
+            f"{pe('gift')} <b>Пробный период почти закончился</b>\n\n"
             "Остался 1 день бесплатного доступа. Чтобы VPN не отключился, "
             "выберите основной тариф и оплатите подписку.\n\n"
             f"Текущая подписка действует до: <b>{format_date(sub.expires_at)}</b>"
         )
     day_word = "день" if days == 1 else "дня" if days in (2, 3, 4) else "дней"
     return (
-        "⏳ <b>Подписка скоро закончится</b>\n\n"
+        f"{pe('time')} <b>Подписка скоро закончится</b>\n\n"
         f"До окончания осталось <b>{days} {day_word}</b>. "
         "Продлите доступ заранее, чтобы VPN работал без паузы.\n\n"
         f"Действует до: <b>{format_date(sub.expires_at)}</b>"

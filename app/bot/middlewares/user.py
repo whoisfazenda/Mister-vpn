@@ -10,6 +10,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.types import CallbackQuery, Message, TelegramObject, User as TgUser
 
 from app.bot.keyboards.factory import make_button, make_url_button
+from app.bot.premium_emoji import pe
 from app.core.config import settings
 from app.repositories.users import UserRepository
 
@@ -46,7 +47,7 @@ class UserMiddleware(BaseMiddleware):
         if not await _has_required_channel_subscription(data, tg_user.id):
             markup = _subscription_keyboard()
             text = (
-                "🔒 <b>Доступ к боту открыт только подписчикам канала.</b>\n\n"
+                f"{pe('lock')} <b>Доступ к боту открыт только подписчикам канала.</b>\n\n"
                 "Подпишитесь на канал и нажмите кнопку проверки."
             )
             if isinstance(event, CallbackQuery):

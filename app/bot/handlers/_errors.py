@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from app.bot import texts
+from app.bot.premium_emoji import pe
 from app.clients.adaptgroup import (
     AdaptGroupAuthError,
     AdaptGroupBadRequest,
@@ -28,15 +29,15 @@ def friendly_error(exc: Exception) -> str:
         return texts.ERROR_BAD_STATE
     if isinstance(exc, AdaptGroupInsufficientFunds):
         # Do not reveal integration balance details to the user.
-        return "⚠️ Сейчас оформить не получилось. Мы уже разбираемся, попробуйте позже."
+        return f"{pe('warning')} Сейчас оформить не получилось. Мы уже разбираемся, попробуйте позже."
     if isinstance(exc, (AdaptGroupUnavailable, AdaptGroupNetworkError)):
-        return "🛠 Сервис временно недоступен. Попробуйте через несколько минут."
+        return f"{pe('settings')} Сервис временно недоступен. Попробуйте через несколько минут."
     if isinstance(exc, (AdaptGroupAuthError, AdaptGroupForbidden, AdaptGroupError)):
         return texts.ERROR_GENERIC
     if isinstance(exc, RollyPayError):
-        return "⚠️ Не удалось создать или проверить платеж. Попробуйте позже или напишите в поддержку."
+        return f"{pe('warning')} Не удалось создать или проверить платеж. Попробуйте позже или напишите в поддержку."
     if isinstance(exc, YooKassaError):
-        return "\u26a0\ufe0f \u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0437\u0434\u0430\u0442\u044c \u0438\u043b\u0438 \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c \u043f\u043b\u0430\u0442\u0435\u0436 \u0447\u0435\u0440\u0435\u0437 \u0421\u0411\u041f #2. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043f\u043e\u0437\u0436\u0435 \u0438\u043b\u0438 \u043d\u0430\u043f\u0438\u0448\u0438\u0442\u0435 \u0432 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u043a\u0443."
+        return f"{pe('warning')} Не удалось создать или проверить платеж. Попробуйте позже или напишите в поддержку."
     return texts.ERROR_GENERIC
 
 

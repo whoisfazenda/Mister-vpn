@@ -96,7 +96,7 @@ async def profile_subscriptions(callback: CallbackQuery, session: AsyncSession, 
         )
         lines.append(f"{idx}. <b>{escape(sub.plan_name or 'VPN')}</b> · {status} · до {format_date(sub.expires_at)}")
         button_style = "success" if sub.is_effectively_active else "danger"
-        button_icon = "🟢" if sub.is_effectively_active else "🔴"
+        button_icon = "✅" if sub.is_effectively_active else "⛔️"
         rows.append(
             [
                 (

@@ -428,7 +428,7 @@ async def _provision_and_report(callback, order_service: OrderService, order, us
 
         if sub is not None and order.order_type == OrderType.NEW_SUBSCRIPTION and sub.subscription_url:
             text = (
-                "🎉 <b>Подписка оформлена!</b>\n\n"
+                f"{pe('sparkles')} <b>Подписка оформлена!</b>\n\n"
                 + texts.subscription_link(sub.subscription_url)
             )
             await replace_with_text_screen(
@@ -440,7 +440,7 @@ async def _provision_and_report(callback, order_service: OrderService, order, us
 
             await replace_with_text_screen(
                 callback,
-                "✅ <b>Готово!</b> Операция выполнена.", reply_markup=main_menu()
+                f"{pe('check')} <b>Готово!</b> Операция выполнена.", reply_markup=main_menu()
             )
         await callback.answer("Готово ✅")
         return
@@ -469,7 +469,7 @@ async def _report_provision_failure(callback, order_service, outcome, user) -> N
         # Surface a careful message; admin review required.
         await replace_with_text_screen(
             callback,
-            "⚠️ <b>Оплата получена, но выдача задержалась.</b>\n\n"
+            f"{pe('warning')} <b>Оплата получена, но выдача задержалась.</b>\n\n"
             "Мы уже проверяем ваш заказ вручную и активируем VPN в ближайшее время. "
             "Повторно платить не нужно.",
             reply_markup=support_keyboard(),
@@ -479,7 +479,7 @@ async def _report_provision_failure(callback, order_service, outcome, user) -> N
 
     await replace_with_text_screen(
         callback,
-        "⚠️ <b>Оплата получена, но активировать VPN не удалось.</b>\n\n"
+        f"{pe('warning')} <b>Оплата получена, но активировать VPN не удалось.</b>\n\n"
         "Деньги не потеряны. Попробуйте ещё раз или напишите в поддержку — мы поможем.",
         reply_markup=support_keyboard(),
     )
