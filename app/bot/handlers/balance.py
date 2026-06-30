@@ -99,5 +99,5 @@ def _balance_text(user: User) -> str:
     return (
         f"{pe('balance')} <b>Ваш баланс</b>\n\n"
         f"Доступно: <b>{float(user.balance or 0):.2f} {user.balance_currency}</b>\n\n"
-        "Баланс можно пополнить через RollyPay, а потом оплачивать VPN внутри бота."
+        "Баланс можно пополнить картой, через СБП или криптовалютой, а потом оплачивать VPN внутри бота."
     )

@@ -70,3 +70,38 @@ async def test_yookassa_status_mapping() -> None:
     )
 
     assert await provider.get_payment_status("yk_pay_1") == PaymentStatus.SUCCEEDED
+
+
+async def test_yookassa_create_payment_can_force_bank_card() -> None:
+    seen: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = request.content.decode("utf-8")
+        return httpx.Response(
+            200,
+            json={
+                "id": "yk_card_1",
+                "status": "pending",
+                "paid": False,
+                "confirmation": {"confirmation_url": "https://yookassa.test/card"},
+            },
+        )
+
+    provider = YooKassaProvider(
+        base_url="https://yookassa.test",
+        shop_id="shop",
+        secret_key="secret",
+        transport=httpx.MockTransport(handler),
+    )
+    result = await provider.create_payment(
+        order_uuid="order-card",
+        amount=500,
+        currency="RUB",
+        description="VPN order",
+        idempotency_key="idem-card",
+        payment_method="bank_card",
+    )
+
+    body = str(seen["body"]).replace(" ", "")
+    assert result.payment_id == "yk_card_1"
+    assert '"payment_method_data":{"type":"bank_card"}' in body
