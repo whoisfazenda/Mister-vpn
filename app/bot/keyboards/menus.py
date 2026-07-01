@@ -20,7 +20,7 @@ def main_menu(*, is_admin: bool = False, show_trial: bool = False) -> InlineKeyb
     ]
     if show_trial:
         rows.append([("💎 Пробный период 7 дней", "trial:claim", "primary")])
-    rows.append([("❓ Помощь", "help:open")])
+    rows.append([("💡 Помощь", "help:open")])
     if is_admin:
         rows.append([("🛠 Админ-панель", "admin:menu", "danger")])
     return inline_keyboard(rows)
@@ -36,6 +36,36 @@ def support_keyboard() -> InlineKeyboardMarkup:
         rows.append([make_url_button("💬 Написать в поддержку", settings.support_url)])
     rows.append([make_button("⬅️ В меню", "menu:open")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def help_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [make_url_button("📢 Новостной канал", "https://t.me/mistervpn_news")],
+            [make_button("📲 Инструкция по подключению", "help:connect", "primary")],
+            [make_button("⬅️ В меню", "menu:open")],
+        ]
+    )
+
+
+def connect_guide_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                make_url_button(
+                    "💻 Windows / macOS",
+                    "https://telegra.ph/Kak-podklyuchit-Mister-VPN-na-WindowsMacOS-07-01",
+                )
+            ],
+            [
+                make_url_button(
+                    "📱 Android / iOS",
+                    "https://telegra.ph/Kak-podklyuchit-Mister-VPN-na-AndroidIOS-07-01",
+                )
+            ],
+            [make_button("⬅️ Назад", "help:open")],
+        ]
+    )
 
 
 def my_vpn_keyboard(sub: VPNSubscription) -> InlineKeyboardMarkup:

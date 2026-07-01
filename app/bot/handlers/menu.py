@@ -54,17 +54,17 @@ async def open_menu(callback: CallbackQuery, state: FSMContext, session: AsyncSe
 
 @router.callback_query(F.data == "help:open")
 async def open_help(callback: CallbackQuery) -> None:
-    from app.bot.keyboards.menus import back_to_menu
+    from app.bot.keyboards.menus import help_keyboard
 
-    await replace_with_text_screen(callback, texts.HELP, reply_markup=back_to_menu())
+    await replace_with_text_screen(callback, texts.HELP, reply_markup=help_keyboard())
     await callback.answer()
 
 
 @router.callback_query(F.data == "help:connect")
 async def open_connect(callback: CallbackQuery) -> None:
-    from app.bot.keyboards.menus import back_to_menu
+    from app.bot.keyboards.menus import connect_guide_keyboard
 
-    await replace_with_text_screen(callback, texts.CONNECT_GUIDE, reply_markup=back_to_menu())
+    await replace_with_text_screen(callback, texts.CONNECT_GUIDE, reply_markup=connect_guide_keyboard())
     await callback.answer()
 
 
