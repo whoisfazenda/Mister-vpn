@@ -18,6 +18,8 @@ from app.core.config import settings
 from app.core.enums import OrderType
 from app.core.logging import get_logger
 from app.db.models.user import User
+from app.db.models.subscription import VPNSubscription
+from app.repositories.subscriptions import SubscriptionRepository
 from app.services.orders import OrderService
 from app.services.plans import PlanService
 from app.services.subscriptions import SubscriptionService
@@ -31,10 +33,28 @@ MAX_CUSTOM_DAYS = 365
 MIN_CUSTOM_DAYS = 3
 
 
-@router.callback_query(F.data == "renew:menu")
+async def _load_sub(
+    session: AsyncSession,
+    user: User,
+    subscription_uuid: str | None = None,
+) -> VPNSubscription | None:
+    if subscription_uuid:
+        sub = await SubscriptionRepository(session).get_by_uuid(subscription_uuid)
+        if sub and sub.user_id == user.id:
+            return sub
+        return None
+    return await SubscriptionService(session, get_client()).get_user_subscription(user.id)
+
+
+def _renew_suffix(callback: CallbackQuery) -> str | None:
+    parts = (callback.data or "").split(":", 2)
+    return parts[2] if len(parts) == 3 else None
+
+
+@router.callback_query(F.data.startswith("renew:menu"))
 async def renew_menu(callback: CallbackQuery, session: AsyncSession, user: User) -> None:
-    service = SubscriptionService(session, get_client())
-    sub = await service.get_user_subscription(user.id)
+    subscription_uuid = _renew_suffix(callback)
+    sub = await _load_sub(session, user, subscription_uuid)
     if sub is None:
         await callback.answer(texts.ERROR_NOT_FOUND, show_alert=True)
         return
@@ -59,23 +79,25 @@ async def renew_menu(callback: CallbackQuery, session: AsyncSession, user: User)
             plan_price = format_price(float(plan.retail_price), plan.currency)
 
     text = [f"{pe('renew')} <b>Продление подписки</b>", ""]
+    text.append(f"Тариф: <b>{texts.escape(sub.plan_name or 'VPN')}</b>")
     if plan_price:
         text.append(f"Продление по текущему тарифу: <b>{plan_price}</b>")
     text.append("Выберите вариант продления:")
 
+    suffix = f":{sub.subscription_uuid}"
     rows = [
-        [("♻️ Продлить текущий тариф", "renew:same", "success")],
-        [("📆 Продлить на N дней", "renew:custom", "primary")],
-        [("⬅️ В профиль", "profile:open")],
+        [("♻️ Продлить текущий тариф", f"renew:same{suffix}", "success")],
+        [("📆 Продлить на N дней", f"renew:custom{suffix}", "primary")],
+        [("⬅️ К подпискам", "profile:subs")],
     ]
     await callback.message.edit_text("\n".join(text), reply_markup=inline_keyboard(rows))
     await callback.answer()
 
 
-@router.callback_query(F.data == "renew:same")
+@router.callback_query(F.data.startswith("renew:same"))
 async def renew_same(callback: CallbackQuery, session: AsyncSession, user: User) -> None:
-    service = SubscriptionService(session, get_client())
-    sub = await service.get_user_subscription(user.id)
+    subscription_uuid = _renew_suffix(callback)
+    sub = await _load_sub(session, user, subscription_uuid)
     if sub is None:
         await callback.answer(texts.ERROR_NOT_FOUND, show_alert=True)
         return
@@ -103,13 +125,15 @@ async def renew_same(callback: CallbackQuery, session: AsyncSession, user: User)
     await callback.answer()
 
 
-@router.callback_query(F.data == "renew:custom")
+@router.callback_query(F.data.startswith("renew:custom"))
 async def renew_custom_start(callback: CallbackQuery, state: FSMContext) -> None:
+    subscription_uuid = _renew_suffix(callback)
+    await state.update_data(renew_subscription_uuid=subscription_uuid)
     await state.set_state(CustomRenewStates.waiting_days)
     await callback.message.edit_text(
         f"{pe('calendar')} <b>Продление на N дней</b>\n\n"
         f"Отправьте число дней (от {MIN_CUSTOM_DAYS} до {MAX_CUSTOM_DAYS}).",
-        reply_markup=inline_keyboard([[("⬅️ Отмена", "profile:open")]]),
+        reply_markup=inline_keyboard([[("⬅️ Отмена", "profile:subs")]]),
     )
     await callback.answer()
 
@@ -124,10 +148,10 @@ async def renew_custom_days(message: Message, state: FSMContext, session: AsyncS
     if not (MIN_CUSTOM_DAYS <= days <= MAX_CUSTOM_DAYS):
         await message.answer(f"Число дней должно быть от {MIN_CUSTOM_DAYS} до {MAX_CUSTOM_DAYS}.")
         return
+    data = await state.get_data()
     await state.clear()
-
-    service = SubscriptionService(session, get_client())
-    sub = await service.get_user_subscription(user.id)
+    subscription_uuid = data.get("renew_subscription_uuid")
+    sub = await _load_sub(session, user, str(subscription_uuid) if subscription_uuid else None)
     if sub is None:
         await message.answer(texts.ERROR_NOT_FOUND)
         return
@@ -153,7 +177,7 @@ async def renew_custom_days(message: Message, state: FSMContext, session: AsyncS
     url = await order_service.start_payment(order)
 
     rows: list[list[InlineKeyboardButton]] = [
-        [make_url_button("💳 Перейти к оплате", url)],
+        [make_url_button("👛 Перейти к оплате", url)],
         [make_button("✅ Проверить оплату", f"pay:check:{order.order_uuid}", "success")],
     ]
     if settings.dev_mode:
@@ -168,7 +192,7 @@ async def renew_custom_days(message: Message, state: FSMContext, session: AsyncS
 
 async def _payment_screen(callback: CallbackQuery, order_uuid: str, url: str, text: str) -> None:
     rows: list[list[InlineKeyboardButton]] = [
-        [make_url_button("💳 Перейти к оплате", url)],
+        [make_url_button("👛 Перейти к оплате", url)],
         [make_button("✅ Проверить оплату", f"pay:check:{order_uuid}", "success")],
     ]
     if settings.dev_mode:

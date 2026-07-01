@@ -160,7 +160,13 @@ async def profile_subscription_card(callback: CallbackQuery, session: AsyncSessi
         text += f"\n\n{pe('gift')} <b>Это пробная подписка. Ее нельзя продлить.</b>"
         rows.append([("🛒 Купить основной тариф", "buy:list", "success")])
     else:
-        rows[0].append(("♻️ Продлить", "renew:menu", "success"))
+        rows[0].append(("♻️ Продлить", f"renew:menu:{sub.subscription_uuid}", "success"))
+    if sub.is_frozen:
+        rows.append([("▶️ Разморозить", f"freeze:unfreeze:{sub.subscription_uuid}", "primary")])
+    else:
+        rows.append([("⏸ Заморозить", f"freeze:confirm:{sub.subscription_uuid}", "danger")])
+    if not sub.is_unlimited_traffic:
+        rows.append([("⚡ Докупить трафик", f"traffic:menu:{sub.subscription_uuid}", "primary")])
     rows.extend(
         [
             [("🖼 QR-код", f"profile:qr:{token}", "primary")],
