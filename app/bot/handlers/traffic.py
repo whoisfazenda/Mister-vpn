@@ -11,6 +11,7 @@ from app.bot import texts
 from app.bot.deps import get_client, get_payments
 from app.bot.keyboards.factory import inline_keyboard, make_button, make_url_button
 from app.bot.premium_emoji import pe
+from app.bot.screens import replace_with_text_screen
 from app.core.config import settings
 from app.core.enums import OrderType
 from app.db.models.user import User
@@ -62,7 +63,8 @@ async def traffic_menu(callback: CallbackQuery, session: AsyncSession, user: Use
         price = format_price(float(settings.traffic_price_per_gb * gb), settings.currency)
         rows.append([(f"⚡ +{gb} ГБ · {price}", f"traffic:buy:{sub.subscription_uuid}:{gb}", "primary")])
     rows.append([("⬅️ К подпискам", "profile:subs")])
-    await callback.message.edit_text(
+    await replace_with_text_screen(
+        callback,
         f"{pe('traffic')} <b>Докупить трафик</b>\n\n"
         f"Подписка: <b>{texts.escape(sub.plan_name or 'VPN')}</b>\n"
         "Выберите объём:",
@@ -108,7 +110,8 @@ async def traffic_buy(callback: CallbackQuery, session: AsyncSession, user: User
     if settings.dev_mode:
         rows.append([make_button("🧪 [DEV] Отметить оплаченным", f"pay:devpaid:{order.order_uuid}", "primary")])
     rows.append([make_button("❌ Отменить", f"pay:cancel:{order.order_uuid}", "danger")])
-    await callback.message.edit_text(
+    await replace_with_text_screen(
+        callback,
         f"{pe('traffic')} Докупить <b>{gb} ГБ</b>\n\nК оплате: <b>{format_price(float(amount), settings.currency)}</b>",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )

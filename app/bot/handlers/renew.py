@@ -13,6 +13,7 @@ from app.bot.deps import get_client, get_payments
 from app.bot.handlers._errors import friendly_error
 from app.bot.keyboards.factory import inline_keyboard, make_button, make_url_button
 from app.bot.premium_emoji import pe
+from app.bot.screens import replace_with_text_screen
 from app.bot.states import CustomRenewStates
 from app.core.config import settings
 from app.core.enums import OrderType
@@ -59,7 +60,8 @@ async def renew_menu(callback: CallbackQuery, session: AsyncSession, user: User)
         await callback.answer(texts.ERROR_NOT_FOUND, show_alert=True)
         return
     if sub.is_trial:
-        await callback.message.edit_text(
+        await replace_with_text_screen(
+            callback,
             f"{pe('gift')} <b>Пробную подписку продлить нельзя.</b>\n\n"
             "Чтобы продолжить пользоваться VPN после теста, выберите основной тариф.",
             reply_markup=inline_keyboard(
@@ -90,7 +92,7 @@ async def renew_menu(callback: CallbackQuery, session: AsyncSession, user: User)
         [("📆 Продлить на N дней", f"renew:custom{suffix}", "primary")],
         [("⬅️ К подпискам", "profile:subs")],
     ]
-    await callback.message.edit_text("\n".join(text), reply_markup=inline_keyboard(rows))
+    await replace_with_text_screen(callback, "\n".join(text), reply_markup=inline_keyboard(rows))
     await callback.answer()
 
 
@@ -130,7 +132,8 @@ async def renew_custom_start(callback: CallbackQuery, state: FSMContext) -> None
     subscription_uuid = _renew_suffix(callback)
     await state.update_data(renew_subscription_uuid=subscription_uuid)
     await state.set_state(CustomRenewStates.waiting_days)
-    await callback.message.edit_text(
+    await replace_with_text_screen(
+        callback,
         f"{pe('calendar')} <b>Продление на N дней</b>\n\n"
         f"Отправьте число дней (от {MIN_CUSTOM_DAYS} до {MAX_CUSTOM_DAYS}).",
         reply_markup=inline_keyboard([[("⬅️ Отмена", "profile:subs")]]),
@@ -198,4 +201,6 @@ async def _payment_screen(callback: CallbackQuery, order_uuid: str, url: str, te
     if settings.dev_mode:
         rows.append([make_button("🧪 [DEV] Отметить оплаченным", f"pay:devpaid:{order_uuid}", "primary")])
     rows.append([make_button("❌ Отменить", f"pay:cancel:{order_uuid}", "danger")])
-    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+    await replace_with_text_screen(
+        callback, text, reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
+    )

@@ -10,6 +10,7 @@ from app.bot.deps import get_client
 from app.bot.handlers._errors import friendly_error
 from app.bot.keyboards.factory import inline_keyboard
 from app.bot.premium_emoji import pe
+from app.bot.screens import replace_with_text_screen
 from app.bot.keyboards.menus import (
     my_vpn_keyboard,
     no_subscription_keyboard,
@@ -54,7 +55,8 @@ def _freeze_uuid(callback: CallbackQuery) -> str | None:
 async def open_my_vpn(callback: CallbackQuery, session: AsyncSession, user: User) -> None:
     service, sub = await _load_sub(session, user)
     if sub is None:
-        await callback.message.edit_text(
+        await replace_with_text_screen(
+            callback,
             texts.NO_SUBSCRIPTION, reply_markup=no_subscription_keyboard()
         )
         await callback.answer()
@@ -68,7 +70,8 @@ async def open_my_vpn(callback: CallbackQuery, session: AsyncSession, user: User
     except Exception as exc:  # noqa: BLE001 — show cached data
         logger.info("Could not refresh subscription %s: %s", sub.subscription_uuid, exc)
 
-    await callback.message.edit_text(
+    await replace_with_text_screen(
+        callback,
         texts.subscription_card(sub, devices_used),
         reply_markup=my_vpn_keyboard(sub),
     )
@@ -81,7 +84,8 @@ async def get_link(callback: CallbackQuery, session: AsyncSession, user: User) -
     if sub is None or not sub.subscription_url:
         await callback.answer(texts.ERROR_NOT_FOUND, show_alert=True)
         return
-    await callback.message.edit_text(
+    await replace_with_text_screen(
+        callback,
         texts.subscription_link(sub.subscription_url),
         reply_markup=subscription_link_keyboard(sub.subscription_url),
     )
@@ -98,7 +102,8 @@ async def confirm_freeze(callback: CallbackQuery) -> None:
         [("✅ Да, заморозить", f"freeze:do{suffix}", "danger")],
         [("⬅️ Отмена", back_callback)],
     ]
-    await callback.message.edit_text(
+    await replace_with_text_screen(
+        callback,
         "⏸ <b>Заморозить подписку?</b>\n\n"
         "Заморозка временно останавливает VPN-доступ по этой подписке. "
         "Пока подписка заморожена, подключение не работает, но срок действия сохраняется "
@@ -123,7 +128,8 @@ async def do_freeze(callback: CallbackQuery, session: AsyncSession, user: User) 
         return
     await callback.answer("Подписка заморожена ❄️")
     if subscription_uuid:
-        await callback.message.edit_text(
+        await replace_with_text_screen(
+            callback,
             f"{pe('frozen')} <b>Подписка заморожена.</b>\n\n"
             "VPN по этой подписке временно остановлен. Чтобы снова пользоваться доступом, нажмите «Разморозить» в карточке подписки.",
             reply_markup=inline_keyboard([[("⬅️ К подпискам", "profile:subs")]]),
@@ -146,7 +152,8 @@ async def do_unfreeze(callback: CallbackQuery, session: AsyncSession, user: User
         return
     await callback.answer("Подписка разморожена ▶️")
     if subscription_uuid:
-        await callback.message.edit_text(
+        await replace_with_text_screen(
+            callback,
             f"{pe('active')} <b>Подписка разморожена.</b>\n\n"
             "VPN снова активен. Можно открыть карточку подписки и пользоваться доступом.",
             reply_markup=inline_keyboard([[("⬅️ К подпискам", "profile:subs")]]),
