@@ -194,7 +194,7 @@ async def admin_plans(callback: CallbackQuery, session: AsyncSession) -> None:
         lines.append(
             f"{visible} {emoji} <b>{escape(plan.name)}</b> · {period} · {price} · {style} · {manual} · {name_mode} · закупка {purchase}"
         )
-        rows.append([(f"{visible} {emoji} {plan.name[:18]}", f"admin:plan:{plan.plan_uuid}", _plan_style(plan))])
+        rows.append([(f"{visible} {emoji} {plan.name}", f"admin:plan:{plan.plan_uuid}", _plan_style(plan))])
     rows.append([("⬅️ Назад", "admin:menu")])
     await replace_with_text_screen(callback, "\n".join(lines), reply_markup=inline_keyboard(rows))
     await callback.answer()
@@ -677,7 +677,7 @@ async def admin_grant_user(message: Message, state: FSMContext, session: AsyncSe
         await message.answer("Тарифов нет. Сначала синхронизируйте тарифы.", reply_markup=_admin_menu())
         return
     rows = [
-        [(f"{p.name[:24]} · {format_price(float(p.retail_price), p.currency) if p.retail_price is not None else '—'}", f"admin:grantplan:{target.id}:{p.plan_uuid}", "primary")]
+        [(f"{p.name} · {format_price(float(p.retail_price), p.currency) if p.retail_price is not None else '—'}", f"admin:grantplan:{target.id}:{p.plan_uuid}", "primary")]
         for p in plans
         if p.is_active and not p.is_trial
     ]
@@ -787,7 +787,7 @@ async def admin_user_grant(callback: CallbackQuery, session: AsyncSession) -> No
         return
     plans = await PlanRepository(session).list_all()
     rows = [
-        [(f"{p.name[:24]} · {format_price(float(p.retail_price), p.currency) if p.retail_price is not None else '—'}", f"admin:grantplan:{target.id}:{p.plan_uuid}", "primary")]
+        [(f"{p.name} · {format_price(float(p.retail_price), p.currency) if p.retail_price is not None else '—'}", f"admin:grantplan:{target.id}:{p.plan_uuid}", "primary")]
         for p in plans
         if p.is_active and not p.is_trial
     ]
