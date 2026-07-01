@@ -163,13 +163,13 @@ async def profile_subscription_card(callback: CallbackQuery, session: AsyncSessi
         rows[0].append(("♻️ Продлить", "renew:menu", "success"))
     rows.extend(
         [
-            [("🔗 QR-код", f"profile:qr:{token}", "primary")],
+            [("🖼 QR-код", f"profile:qr:{token}", "primary")],
             [("⬅️ К подпискам", "profile:subs")],
         ]
     )
     markup = inline_keyboard(rows)
     if sub.subscription_url:
-        markup.inline_keyboard.insert(1, [make_url_button("🔗 Открыть подписку", sub.subscription_url)])
+        markup.inline_keyboard.insert(1, [make_url_button("🌐 Открыть подписку", sub.subscription_url)])
     await replace_with_text_screen(callback, text, reply_markup=markup)
     await callback.answer()
 
@@ -186,7 +186,7 @@ async def profile_subscription_qr(callback: CallbackQuery, session: AsyncSession
     qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=" + quote(sub.subscription_url)
     await callback.message.answer_photo(
         qr_url,
-        caption=f"{pe('link')} QR-код подписки. Отсканируйте его в VPN-клиенте.",
+        caption=f"{pe('web')} QR-код подписки. Отсканируйте его в VPN-клиенте.",
     )
     await callback.answer()
 

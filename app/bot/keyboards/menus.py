@@ -13,6 +13,8 @@ from app.core.config import settings
 from app.db.models.subscription import VPNSubscription
 from aiogram.types import InlineKeyboardButton
 
+SUPPORT_URL = "https://t.me/mistervpnsup_bot"
+
 
 def main_menu(*, is_admin: bool = False, show_trial: bool = False) -> InlineKeyboardMarkup:
     rows = [
@@ -32,8 +34,7 @@ def back_to_menu(label: str = "⬅️ В меню") -> InlineKeyboardMarkup:
 
 def support_keyboard() -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
-    if settings.support_url:
-        rows.append([make_url_button("💬 Написать в поддержку", settings.support_url)])
+    rows.append([make_url_button("💬 Написать в поддержку", settings.support_url or SUPPORT_URL)])
     rows.append([make_button("⬅️ В меню", "menu:open")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -42,6 +43,7 @@ def help_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [make_url_button("📢 Новостной канал", "https://t.me/mistervpn_news")],
+            [make_url_button("💬 Поддержка", settings.support_url or SUPPORT_URL)],
             [make_button("📲 Инструкция по подключению", "help:connect", "primary")],
             [make_button("⬅️ В меню", "menu:open")],
         ]
