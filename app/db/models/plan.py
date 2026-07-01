@@ -32,6 +32,8 @@ class VPNPlanSnapshot(Base):
     max_devices: Mapped[int | None] = mapped_column(Integer, nullable=True)
     traffic_limit_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     period_group: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    button_style: Mapped[str] = mapped_column(String(16), default="primary", nullable=False)
+    button_emoji_key: Mapped[str | None] = mapped_column(String(32), nullable=True)
     is_trial: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

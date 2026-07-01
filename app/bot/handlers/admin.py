@@ -11,9 +11,11 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot import texts as bot_texts
 from app.bot.deps import get_client, get_payments
 from app.bot.filters.admin import IsAdmin
 from app.bot.keyboards.factory import inline_keyboard
+from app.bot.premium_emoji import EMOJI_IDS
 from app.bot.screens import replace_with_text_screen
 from app.bot.states import AdminStates
 from app.core.config import settings
@@ -38,6 +40,23 @@ router = Router(name="admin")
 # All handlers in this router require admin rights.
 router.message.filter(IsAdmin())
 router.callback_query.filter(IsAdmin())
+
+PLAN_BUTTON_STYLES = (
+    ("primary", "🔵 Синяя"),
+    ("success", "🟢 Зеленая"),
+    ("danger", "🔴 Красная"),
+)
+
+PLAN_EMOJI_PRESETS = (
+    ("auto", "🤖 Авто"),
+    ("star", "⭐ Standard"),
+    ("diamond", "💎 Pro"),
+    ("crown", "👑 Ultra"),
+    ("rocket", "🚀 Быстрый"),
+    ("shield", "🛡 Защита"),
+    ("sparkles", "✨ Premium"),
+    ("subs", "📦 Базовый"),
+)
 
 
 def _admin_menu():
@@ -170,10 +189,12 @@ async def admin_plans(callback: CallbackQuery, session: AsyncSession) -> None:
         price = format_price(float(plan.retail_price), plan.currency) if plan.retail_price is not None else "—"
         purchase = _purchase_label(plan)
         period = period_label(plan.period_group, short=True)
+        style = _plan_button_style(plan)
+        emoji = _plan_button_emoji_label(plan)
         lines.append(
-            f"{visible} <b>{escape(plan.name)}</b> · {period} · {price} · {manual} · {name_mode} · закупка {purchase}"
+            f"{visible} {emoji} <b>{escape(plan.name)}</b> · {period} · {price} · {style} · {manual} · {name_mode} · закупка {purchase}"
         )
-        rows.append([(f"{visible} {plan.name[:20]}", f"admin:plan:{plan.plan_uuid}")])
+        rows.append([(f"{visible} {emoji} {plan.name[:18]}", f"admin:plan:{plan.plan_uuid}", _plan_style(plan))])
     rows.append([("⬅️ Назад", "admin:menu")])
     await replace_with_text_screen(callback, "\n".join(lines), reply_markup=inline_keyboard(rows))
     await callback.answer()
@@ -198,15 +219,25 @@ async def _render_admin_plan_card(callback: CallbackQuery, plan) -> None:
         f"Цена для клиента: <b>{price}</b>\n"
         f"Закупка AdaptGroup: <b>{_purchase_label(plan)}</b>\n"
         f"Категория срока: <b>{period_label(plan.period_group)}</b>\n"
+        f"Устройства: <b>{plan.max_devices or '—'}</b>\n"
+        f"Дней: <b>{plan.duration_days or '—'}</b>\n"
+        f"Трафик: <b>{bot_texts.format_traffic(plan.traffic_limit_bytes)}</b>\n"
         f"В витрине: <b>{'да' if plan.is_public else 'нет'}</b>\n"
         f"Цена: <b>{'ручная' if plan.manual_price else 'авто'}</b>\n"
-        f"Название: <b>{'ручное' if plan.manual_name else 'из AdaptGroup'}</b>"
+        f"Название: <b>{'ручное' if plan.manual_name else 'из AdaptGroup'}</b>\n"
+        f"Цвет кнопки: <b>{_plan_button_style(plan)}</b>\n"
+        f"Эмодзи кнопки: <b>{_plan_button_emoji_label(plan)}</b>\n\n"
+        "<b>Как увидит клиент:</b>\n"
+        f"<code>{escape(bot_texts.plan_button_label(plan))}</code>\n\n"
+        f"{bot_texts.plan_card(plan)}"
     )
     rows = [
         [("✅ Показать" if not plan.is_public else "🚫 Скрыть", f"admin:plantoggle:{plan.plan_uuid}", "primary")],
         [("💰 Задать цену", f"admin:planprice:{plan.plan_uuid}", "success")],
         [("✏️ Название тарифа", f"admin:planname:{plan.plan_uuid}", "primary")],
         [("📅 Выбрать срок", f"admin:planperiod:{plan.plan_uuid}", "primary")],
+        [("🎨 Цвет кнопки", f"admin:planstyle:{plan.plan_uuid}", "primary")],
+        [("✨ Эмодзи кнопки", f"admin:planemoji:{plan.plan_uuid}", "primary")],
         [("⬅️ К тарифам", "admin:plans")],
     ]
     await replace_with_text_screen(callback, text, reply_markup=inline_keyboard(rows))
@@ -252,6 +283,92 @@ async def admin_plan_period_set(callback: CallbackQuery, session: AsyncSession) 
         return
     await session.commit()
     await callback.answer("Срок сохранён ✅")
+    await _render_admin_plan_card(callback, plan)
+
+
+@router.callback_query(F.data.startswith("admin:planstyle:"))
+async def admin_plan_style_menu(callback: CallbackQuery, session: AsyncSession) -> None:
+    plan_uuid = callback.data.split(":", 2)[2]
+    plan = await PlanRepository(session).get_by_uuid(plan_uuid)
+    if plan is None:
+        await callback.answer("Тариф не найден.", show_alert=True)
+        return
+    rows = [
+        [
+            (
+                f"{'✓ ' if _plan_style(plan) == style else ''}{label}",
+                f"admin:planstyleset:{plan.plan_uuid}:{style}",
+                style,
+            )
+        ]
+        for style, label in PLAN_BUTTON_STYLES
+    ]
+    rows.append([("⬅️ К тарифу", f"admin:plan:{plan.plan_uuid}")])
+    await replace_with_text_screen(
+        callback,
+        "🎨 <b>Цвет кнопки тарифа</b>\n\n"
+        f"Тариф: <b>{escape(plan.name)}</b>\n"
+        f"Сейчас: <b>{_plan_button_style(plan)}</b>\n\n"
+        "Выберите цвет кнопки в витрине.",
+        reply_markup=inline_keyboard(rows),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:planstyleset:"))
+async def admin_plan_style_set(callback: CallbackQuery, session: AsyncSession) -> None:
+    _, _, plan_uuid, style = callback.data.split(":", 3)
+    plan = await PlanRepository(session).get_by_uuid(plan_uuid)
+    if plan is None:
+        await callback.answer("Тариф не найден.", show_alert=True)
+        return
+    if style not in {item[0] for item in PLAN_BUTTON_STYLES}:
+        await callback.answer("Цвет не найден.", show_alert=True)
+        return
+    plan.button_style = style
+    await session.commit()
+    await callback.answer("Цвет сохранён ✅")
+    await _render_admin_plan_card(callback, plan)
+
+
+@router.callback_query(F.data.startswith("admin:planemoji:"))
+async def admin_plan_emoji_menu(callback: CallbackQuery, session: AsyncSession) -> None:
+    plan_uuid = callback.data.split(":", 2)[2]
+    plan = await PlanRepository(session).get_by_uuid(plan_uuid)
+    if plan is None:
+        await callback.answer("Тариф не найден.", show_alert=True)
+        return
+    current = getattr(plan, "button_emoji_key", None) or "auto"
+    rows = []
+    for key, label in PLAN_EMOJI_PRESETS:
+        style = "success" if key == current else "primary"
+        rows.append([(f"{'✓ ' if key == current else ''}{label}", f"admin:planemojiset:{plan.plan_uuid}:{key}", style)])
+    rows.append([("⬅️ К тарифу", f"admin:plan:{plan.plan_uuid}")])
+    await replace_with_text_screen(
+        callback,
+        "✨ <b>Эмодзи кнопки тарифа</b>\n\n"
+        f"Тариф: <b>{escape(plan.name)}</b>\n"
+        f"Сейчас: <b>{_plan_button_emoji_label(plan)}</b>\n\n"
+        "Авто подбирает иконку по названию: Standard, Pro, Ultra.",
+        reply_markup=inline_keyboard(rows),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:planemojiset:"))
+async def admin_plan_emoji_set(callback: CallbackQuery, session: AsyncSession) -> None:
+    _, _, plan_uuid, emoji_key = callback.data.split(":", 3)
+    plan = await PlanRepository(session).get_by_uuid(plan_uuid)
+    if plan is None:
+        await callback.answer("Тариф не найден.", show_alert=True)
+        return
+    allowed = {item[0] for item in PLAN_EMOJI_PRESETS}
+    if emoji_key not in allowed:
+        await callback.answer("Эмодзи не найден.", show_alert=True)
+        return
+    plan.button_emoji_key = None if emoji_key == "auto" else emoji_key
+    await session.commit()
+    await callback.answer("Эмодзи сохранено ✅")
     await _render_admin_plan_card(callback, plan)
 
 
@@ -1030,6 +1147,34 @@ async def admin_integration(callback: CallbackQuery, session: AsyncSession) -> N
         text, reply_markup=inline_keyboard([[("⬅️ Назад", "admin:menu")]])
     )
     await callback.answer()
+
+
+def _plan_style(plan) -> str:
+    style = str(getattr(plan, "button_style", "primary") or "primary")
+    return style if style in {item[0] for item in PLAN_BUTTON_STYLES} else "primary"
+
+
+def _plan_button_style(plan) -> str:
+    style = _plan_style(plan)
+    return next((label for key, label in PLAN_BUTTON_STYLES if key == style), "🔵 Синяя")
+
+
+def _plan_button_emoji_label(plan) -> str:
+    key = getattr(plan, "button_emoji_key", None) or _auto_plan_emoji_key(plan)
+    fallback = EMOJI_IDS.get(str(key), EMOJI_IDS["subs"])[0]
+    preset = next((label for preset_key, label in PLAN_EMOJI_PRESETS if preset_key == key), None)
+    return preset or fallback
+
+
+def _auto_plan_emoji_key(plan) -> str:
+    name = (getattr(plan, "name", "") or "").lower()
+    if "ultra" in name or "ультра" in name:
+        return "crown"
+    if "pro" in name or "про" in name:
+        return "diamond"
+    if "standard" in name or "стандарт" in name:
+        return "star"
+    return "subs"
 
 
 # ── broadcast ────────────────────────────────────────────────

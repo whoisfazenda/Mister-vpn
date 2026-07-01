@@ -66,10 +66,11 @@ def plan_button_label(plan: VPNPlanSnapshot) -> str:
     price = format_price(
         float(plan.retail_price) if plan.retail_price is not None else None, plan.currency
     )
-    parts = [escape(plan.name), price]
-    if plan.duration_days:
-        parts.append(format_days(plan.duration_days))
-    return " · ".join(parts)
+    parts = [escape(plan.name)]
+    if plan.max_devices:
+        parts.append(f"{plan.max_devices} устройств")
+    parts.append(price)
+    return f"{_plan_button_emoji(plan)} " + " · ".join(parts)
 
 
 def plan_card(plan: VPNPlanSnapshot) -> str:
@@ -77,7 +78,7 @@ def plan_card(plan: VPNPlanSnapshot) -> str:
         float(plan.retail_price) if plan.retail_price is not None else None, plan.currency
     )
     lines = [
-        f"{pe('subs')} <b>{escape(plan.name)}</b>",
+        f"{_emoji_tag(_plan_emoji_key(plan))} <b>{escape(plan.name)}</b>",
         "",
         f"{pe('balance')} Цена: <b>{price}</b>",
     ]
@@ -87,6 +88,38 @@ def plan_card(plan: VPNPlanSnapshot) -> str:
         lines.append(f"{pe('devices')} Устройств: до {plan.max_devices}")
     lines.append(f"{pe('traffic')} Трафик: {format_traffic(plan.traffic_limit_bytes)}")
     return "\n".join(lines)
+
+
+def _plan_button_emoji(plan: VPNPlanSnapshot) -> str:
+    key = _plan_emoji_key(plan)
+    return _emoji_fallback(key)
+
+
+def _plan_emoji_key(plan: VPNPlanSnapshot) -> str:
+    manual = getattr(plan, "button_emoji_key", None)
+    if manual:
+        return str(manual)
+    name = (plan.name or "").lower()
+    if "ultra" in name or "ультра" in name:
+        return "crown"
+    if "pro" in name or "про" in name:
+        return "diamond"
+    if "standard" in name or "стандарт" in name:
+        return "star"
+    return "subs"
+
+
+def _emoji_fallback(key: str) -> str:
+    from app.bot.premium_emoji import EMOJI_IDS
+
+    return EMOJI_IDS.get(key, EMOJI_IDS["subs"])[0]
+
+
+def _emoji_tag(key: str) -> str:
+    from app.bot.premium_emoji import EMOJI_IDS
+
+    fallback, emoji_id = EMOJI_IDS.get(key, EMOJI_IDS["subs"])
+    return f'<tg-emoji emoji-id="{emoji_id}">{fallback}</tg-emoji>'
 
 
 def order_summary(plan: VPNPlanSnapshot) -> str:

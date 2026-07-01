@@ -90,7 +90,16 @@ async def list_period_plans(callback: CallbackQuery, session: AsyncSession) -> N
     if not plans:
         await callback.answer("В этой категории пока нет тарифов.", show_alert=True)
         return
-    rows = [[(texts.plan_button_label(p), f"buy:plan:{p.plan_uuid}", "primary")] for p in plans]
+    rows = [
+        [
+            (
+                texts.plan_button_label(p),
+                f"buy:plan:{p.plan_uuid}",
+                getattr(p, "button_style", None) or "primary",
+            )
+        ]
+        for p in plans
+    ]
     rows.append([("⬅️ К срокам", "buy:list")])
     await replace_with_photo_screen(
         callback,
@@ -111,7 +120,7 @@ async def show_plan(callback: CallbackQuery, session: AsyncSession) -> None:
         return
     rows = [
         [("💰 Оплатить с баланса", f"buy:balance:{plan.plan_uuid}", "success")],
-        [("💳 Оплатить напрямую", f"buy:order:{plan.plan_uuid}", "primary")],
+        [("👛 Оплатить напрямую", f"buy:order:{plan.plan_uuid}", "primary")],
         [("⬅️ К тарифам", f"buy:period:{plan.period_group}" if plan.period_group else "buy:list")],
     ]
     await replace_with_text_screen(callback, texts.plan_card(plan), reply_markup=inline_keyboard(rows))
@@ -190,7 +199,7 @@ async def render_payment_method_choice(
     from app.bot.keyboards.factory import make_button
 
     rows: list[list[InlineKeyboardButton]] = [
-        [make_button("💳 Карта / СБП", f"pay:start:yookassa_all:{order_uuid}", "primary")],
+        [make_button("👛 Карта / СБП", f"pay:start:yookassa_all:{order_uuid}", "primary")],
         [make_button("💎 Криптовалютой", f"pay:start:crypto:{order_uuid}", "success")],
         [make_button("🚀 xRocket", f"pay:start:xrocket:{order_uuid}", "success")],
         [make_button("🤖 CryptoBot", f"pay:start:cryptobot:{order_uuid}", "success")],
@@ -217,9 +226,9 @@ async def _render_payment_screen(
     from app.bot.keyboards.factory import make_button
 
     if method_label:
-        pay_label = f"💳 Перейти к оплате"
+        pay_label = f"👛 Перейти к оплате"
     else:
-        pay_label = "\U0001f4b3 \u041f\u0435\u0440\u0435\u0439\u0442\u0438 \u043a \u043e\u043f\u043b\u0430\u0442\u0435"
+        pay_label = "👛 Перейти к оплате"
     rows.append([make_url_button(pay_label, confirmation_url)])
     rows.append([make_button("\u2705 \u041f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c \u043e\u043f\u043b\u0430\u0442\u0443", f"pay:check:{order.order_uuid}", "success")])
     if settings.dev_mode:
