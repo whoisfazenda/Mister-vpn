@@ -1,6 +1,8 @@
 """Buy flow: list plans → plan card → create order → pay → provision."""
 from __future__ import annotations
 
+from decimal import Decimal
+
 from aiogram import F, Router
 from aiogram.types import CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -168,19 +170,18 @@ async def buy_from_balance(callback: CallbackQuery, session: AsyncSession, user:
     order = await order_service.create_new_subscription_order(user.id, plan_uuid)
     enough = await order_service.pay_from_balance(order)
     if not enough:
-        need = float(plan.retail_price) - float(user.balance or 0)
-        from app.bot.keyboards.factory import make_button
-
-        rows = [
-            [make_button(f"💳 Пополнить на {need:.0f} {plan.currency}", "balance:topup", "success")],
-            [make_button("⬅️ К тарифу", f"buy:plan:{plan.plan_uuid}")],
-        ]
-        await replace_with_text_screen(
+        need = Decimal(str(plan.retail_price)) - Decimal(str(user.balance or 0))
+        topup_amount = max(need, Decimal(str(settings.min_balance_topup))).quantize(Decimal("0.01"))
+        topup_order = await order_service.create_balance_topup_order(user.id, topup_amount)
+        await render_payment_method_choice(
             callback,
+            topup_order.order_uuid,
             f"{pe('balance')} <b>Недостаточно средств на балансе</b>\n\n"
             f"Баланс: <b>{float(user.balance or 0):.2f} {user.balance_currency}</b>\n"
-            f"Нужно: <b>{float(plan.retail_price):.2f} {plan.currency}</b>",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+            f"Нужно: <b>{float(plan.retail_price):.2f} {plan.currency}</b>\n\n"
+            f"Пополнение: <b>{float(topup_amount):.2f} {settings.currency}</b>\n"
+            "После пополнения вернитесь к тарифу и оплатите его с баланса.",
+            back_callback=f"buy:plan:{plan.plan_uuid}",
         )
         await callback.answer()
         return
@@ -320,6 +321,9 @@ async def start_selected_payment(callback: CallbackQuery, session: AsyncSession,
     order.payment_provider = payment_provider.name
     payment_method = _provider_payment_method(method)
     method_label = _payment_method_label(method)
+    snapshot = dict(order.snapshot or {})
+    snapshot["payment_method"] = method_label
+    order.snapshot = snapshot
     try:
         confirmation_url = await order_service.start_payment(order, payment_method=payment_method)
     except Exception as exc:  # noqa: BLE001

@@ -22,6 +22,7 @@ from app.bot.screens import (
     replace_with_text_screen,
 )
 from app.bot.states import PromoStates
+from app.core.enums import OrderStatus, OrderType
 from app.db.models.user import User
 from app.repositories.orders import OrderRepository
 from app.repositories.promos import PromoRepository
@@ -340,9 +341,7 @@ async def profile_history(callback: CallbackQuery, session: AsyncSession, user: 
     else:
         lines = [f"{pe('history')} <b>История транзакций</b>", ""]
         for order in orders:
-            lines.append(
-                f"• {order.order_type} · {format_price(float(order.amount), order.currency)} · <b>{order.status}</b>"
-            )
+            lines.append(_transaction_line(order))
         text = "\n".join(lines)
     await replace_with_photo_screen(
         callback,
@@ -351,6 +350,60 @@ async def profile_history(callback: CallbackQuery, session: AsyncSession, user: 
         reply_markup=inline_keyboard([[("⬅️ В профиль", "profile:open")]]),
     )
     await callback.answer()
+
+
+def _transaction_line(order) -> str:
+    snapshot = order.snapshot or {}
+    amount = format_price(float(order.amount), order.currency)
+    status = _order_status_label(str(order.status))
+    date = format_date(order.created_at)
+    provider = _payment_provider_label(order.payment_provider, snapshot)
+    order_type = str(order.order_type)
+
+    if order_type == OrderType.BALANCE_TOPUP:
+        return f"• {pe('balance')} Пополнение баланса · <b>{amount}</b> · {provider} · {status} · {date}"
+    if order_type == OrderType.NEW_SUBSCRIPTION:
+        plan_name = escape(snapshot.get("plan_name") or "VPN")
+        return f"• {pe('subs')} Покупка тарифа <b>{plan_name}</b> · {amount} · {provider} · {status} · {date}"
+    if order_type == OrderType.RENEW:
+        return f"• {pe('renew')} Продление подписки · {amount} · {provider} · {status} · {date}"
+    if order_type == OrderType.RENEW_CUSTOM:
+        days = snapshot.get("days")
+        details = f" на {days} дн." if days else ""
+        return f"• {pe('calendar')} Продление{details} · {amount} · {provider} · {status} · {date}"
+    if order_type == OrderType.TRAFFIC:
+        gb = snapshot.get("amount_gb")
+        details = f" {gb} ГБ" if gb else ""
+        return f"• {pe('traffic')} Докупка трафика{details} · {amount} · {provider} · {status} · {date}"
+    if order_type == OrderType.UPGRADE:
+        return f"• {pe('rocket')} Улучшение тарифа · {amount} · {provider} · {status} · {date}"
+    return f"• {pe('receipt')} Операция · {amount} · {provider} · {status} · {date}"
+
+
+def _payment_provider_label(provider: str | None, snapshot: dict | None = None) -> str:
+    snapshot = snapshot or {}
+    if snapshot.get("payment_method"):
+        return escape(str(snapshot["payment_method"]))
+    labels = {
+        "balance": "баланс",
+        "yookassa": "карта / СБП",
+        "rollypay": "крипто",
+        "mock": "тест",
+        "free_trial": "бесплатно",
+    }
+    return labels.get(str(provider or "").lower(), str(provider or "—"))
+
+
+def _order_status_label(status: str) -> str:
+    labels = {
+        str(OrderStatus.PENDING): "ожидает оплаты",
+        str(OrderStatus.PAID): "оплачено",
+        str(OrderStatus.PROVISIONING): "выдаётся",
+        str(OrderStatus.COMPLETED): "успешно",
+        str(OrderStatus.FAILED): "ошибка",
+        str(OrderStatus.CANCELLED): "отменено",
+    }
+    return labels.get(status, status)
 
 
 @router.callback_query(F.data == "profile:promo")

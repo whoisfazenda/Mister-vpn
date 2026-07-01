@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import texts
 from app.bot.deps import get_client, get_payments
-from app.bot.keyboards.factory import inline_keyboard, make_button, make_url_button
+from app.bot.handlers.buy import render_payment_method_choice
+from app.bot.keyboards.factory import inline_keyboard
 from app.bot.premium_emoji import pe
 from app.bot.screens import replace_with_text_screen
 from app.core.config import settings
@@ -20,7 +21,6 @@ from app.repositories.subscriptions import SubscriptionRepository
 from app.services.orders import OrderService
 from app.services.subscriptions import SubscriptionService
 from app.utils.formatting import format_price
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 router = Router(name="traffic")
 
@@ -61,7 +61,7 @@ async def traffic_menu(callback: CallbackQuery, session: AsyncSession, user: Use
     rows = []
     for gb in TRAFFIC_PACKS:
         price = format_price(float(settings.traffic_price_per_gb * gb), settings.currency)
-        rows.append([(f"⚡ +{gb} ГБ · {price}", f"traffic:buy:{sub.subscription_uuid}:{gb}", "primary")])
+        rows.append([(f"⚡ +{gb} ГБ · {price}", f"traffic:pack:{sub.subscription_uuid}:{gb}", "primary")])
     rows.append([("⬅️ К подпискам", "profile:subs")])
     await replace_with_text_screen(
         callback,
@@ -71,6 +71,86 @@ async def traffic_menu(callback: CallbackQuery, session: AsyncSession, user: Use
         reply_markup=inline_keyboard(rows),
     )
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("traffic:pack:"))
+async def traffic_pack(callback: CallbackQuery, session: AsyncSession, user: User) -> None:
+    parts = (callback.data or "").split(":")
+    if len(parts) != 4:
+        await callback.answer(texts.ERROR_GENERIC, show_alert=True)
+        return
+    subscription_uuid = parts[2]
+    raw = parts[3]
+    if not raw.isdigit() or int(raw) not in TRAFFIC_PACKS:
+        await callback.answer(texts.ERROR_GENERIC, show_alert=True)
+        return
+    gb = int(raw)
+    sub = await _load_sub(session, user, subscription_uuid)
+    if sub is None or sub.is_unlimited_traffic:
+        await callback.answer(texts.ERROR_NOT_FOUND, show_alert=True)
+        return
+    amount = Decimal(settings.traffic_price_per_gb) * gb
+    await replace_with_text_screen(
+        callback,
+        f"{pe('traffic')} <b>Докупить {gb} ГБ</b>\n\n"
+        f"Подписка: <b>{texts.escape(sub.plan_name or 'VPN')}</b>\n"
+        f"К оплате: <b>{format_price(float(amount), settings.currency)}</b>\n\n"
+        "Выберите способ оплаты:",
+        reply_markup=inline_keyboard(
+            [
+                [("💰 Оплатить с баланса", f"traffic:balance:{sub.subscription_uuid}:{gb}", "success")],
+                [("👛 Оплатить напрямую", f"traffic:buy:{sub.subscription_uuid}:{gb}", "primary")],
+                [("⬅️ Назад", f"traffic:menu:{sub.subscription_uuid}")],
+            ]
+        ),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("traffic:balance:"))
+async def traffic_from_balance(callback: CallbackQuery, session: AsyncSession, user: User) -> None:
+    parts = (callback.data or "").split(":")
+    if len(parts) != 4:
+        await callback.answer(texts.ERROR_GENERIC, show_alert=True)
+        return
+    subscription_uuid = parts[2]
+    raw = parts[3]
+    if not raw.isdigit() or int(raw) not in TRAFFIC_PACKS:
+        await callback.answer(texts.ERROR_GENERIC, show_alert=True)
+        return
+    gb = int(raw)
+    sub = await _load_sub(session, user, subscription_uuid)
+    if sub is None or sub.is_unlimited_traffic:
+        await callback.answer(texts.ERROR_NOT_FOUND, show_alert=True)
+        return
+
+    amount = Decimal(settings.traffic_price_per_gb) * gb
+    order_service = OrderService(session, get_client(), get_payments())
+    order = await order_service.create_action_order(
+        user.id, OrderType.TRAFFIC, sub.subscription_uuid,
+        amount=amount, currency=settings.currency, extra={"amount_gb": gb},
+    )
+    enough = await order_service.pay_from_balance(order)
+    if not enough:
+        need = amount - Decimal(str(user.balance or 0))
+        topup_amount = max(need, Decimal(str(settings.min_balance_topup))).quantize(Decimal("0.01"))
+        topup_order = await order_service.create_balance_topup_order(user.id, topup_amount)
+        await render_payment_method_choice(
+            callback,
+            topup_order.order_uuid,
+            f"{pe('balance')} <b>Недостаточно средств на балансе</b>\n\n"
+            f"Баланс: <b>{float(user.balance or 0):.2f} {user.balance_currency}</b>\n"
+            f"Нужно: <b>{format_price(float(amount), settings.currency)}</b>\n\n"
+            f"Пополнение: <b>{format_price(float(topup_amount), settings.currency)}</b>\n"
+            "После пополнения вернитесь к докупке трафика и оплатите её с баланса.",
+            back_callback=f"traffic:pack:{sub.subscription_uuid}:{gb}",
+        )
+        await callback.answer()
+        return
+
+    from app.bot.handlers.buy import _provision_and_report
+
+    await _provision_and_report(callback, order_service, order, user)
 
 
 @router.callback_query(F.data.startswith("traffic:buy:"))
@@ -101,18 +181,10 @@ async def traffic_buy(callback: CallbackQuery, session: AsyncSession, user: User
         user.id, OrderType.TRAFFIC, sub.subscription_uuid,
         amount=amount, currency=settings.currency, extra={"amount_gb": gb},
     )
-    url = await order_service.start_payment(order)
-
-    rows: list[list[InlineKeyboardButton]] = [
-        [make_url_button("👛 Перейти к оплате", url)],
-        [make_button("✅ Проверить оплату", f"pay:check:{order.order_uuid}", "success")],
-    ]
-    if settings.dev_mode:
-        rows.append([make_button("🧪 [DEV] Отметить оплаченным", f"pay:devpaid:{order.order_uuid}", "primary")])
-    rows.append([make_button("❌ Отменить", f"pay:cancel:{order.order_uuid}", "danger")])
-    await replace_with_text_screen(
+    await render_payment_method_choice(
         callback,
+        order.order_uuid,
         f"{pe('traffic')} Докупить <b>{gb} ГБ</b>\n\nК оплате: <b>{format_price(float(amount), settings.currency)}</b>",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+        back_callback=f"traffic:pack:{sub.subscription_uuid}:{gb}",
     )
     await callback.answer()

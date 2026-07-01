@@ -210,6 +210,7 @@ class OrderService:
             return False
         user.balance = balance - amount
         user.balance_currency = settings.currency
+        order.payment_provider = "balance"
         await self.orders.mark_paid(order)
         await self.session.commit()
         return True
